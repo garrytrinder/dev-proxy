@@ -102,3 +102,4 @@ jobs:
         with:
           args: |
               output/binaries-*/*.zip
+              output/installer-*/*.exe
