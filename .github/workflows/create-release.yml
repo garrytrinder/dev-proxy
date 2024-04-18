@@ -73,7 +73,7 @@ jobs:
         id: installer
         if: contains(matrix.architecture, 'win-')
         run: |
-          if (contains(github.ref_name, 'beta'))
+          if (contains(${{ github.ref_name }}, 'beta'))
           then
             echo "::set-output name=filename::install-beta.iss"
           else
