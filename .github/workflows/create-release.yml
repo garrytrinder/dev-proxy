@@ -74,9 +74,9 @@ jobs:
         if: contains(matrix.architecture, 'win-')
         run: |
           if ('${{ github.ref_name }}'.Contains('beta')) {
-              Write-Output "name=filename::install-beta.iss" >> $GITHUB_OUTPUT
+              Write-Output "filename=install-beta.iss" >> $GITHUB_OUTPUT
           } else {
-              Write-Output "name=filename::install.iss" >> $GITHUB_OUTPUT
+              Write-Output "filename=install.iss" >> $GITHUB_OUTPUT
           }
       - name: Add install file
         if: contains(matrix.architecture, 'win-')
