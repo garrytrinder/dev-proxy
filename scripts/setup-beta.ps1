@@ -1,6 +1,5 @@
 #---------------------------------------------------------------------------------------------
-# Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT License. See License in the project root for license information.
+# Copyright (c) .NET Foundation and Contributors. All Rights Reserved. Licensed under the MIT License (MIT). See License.md in the repository root for more information. All rights reserved.
 #---------------------------------------------------------------------------------------------
 
 if (-not $IsLinux)

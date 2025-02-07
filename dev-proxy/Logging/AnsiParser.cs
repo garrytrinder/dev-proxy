@@ -1,5 +1,4 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License
+// Copyright (c) .NET Foundation and Contributors. All Rights Reserved. Licensed under the MIT License (MIT). See License.md in the repository root for more information.
 
 // from https://github.com/dotnet/runtime/blob/e1c671760e23de03ee4be74eeb26831813488100/src/libraries/Microsoft.Extensions.Logging.Console/src/AnsiParser.cs
 
