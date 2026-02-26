@@ -240,7 +240,7 @@ sealed class DevProxyCommand : RootCommand
         IProxyConfiguration proxyConfiguration,
         IServiceProvider serviceProvider,
         UpdateNotification updateNotification,
-        ILogger<DevProxyCommand> logger) : base("Start Dev Proxy")
+        ILogger<DevProxyCommand> logger) : base($"Start Dev Proxy\n\nAPI:\n  Dev Proxy exposes a REST API for runtime management.\n  OpenAPI spec: http://{proxyConfiguration.IPAddress ?? "127.0.0.1"}:{proxyConfiguration.ApiPort}/swagger\n  Use --api-port to configure (default: {proxyConfiguration.ApiPort}).\n  Run 'devproxy api show' for more information.")
     {
         _serviceProvider = serviceProvider;
         _plugins = plugins;
@@ -581,6 +581,7 @@ sealed class DevProxyCommand : RootCommand
 
         var commands = new List<Command>
         {
+            ActivatorUtilities.CreateInstance<ApiCommand>(_serviceProvider),
             ActivatorUtilities.CreateInstance<MsGraphDbCommand>(_serviceProvider),
             ActivatorUtilities.CreateInstance<ConfigCommand>(_serviceProvider),
             ActivatorUtilities.CreateInstance<OutdatedCommand>(_serviceProvider),
