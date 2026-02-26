@@ -33,6 +33,7 @@ sealed class DevProxyCommand : RootCommand
         Description = "The path to the configuration file"
     };
     internal const string NoFirstRunOptionName = "--no-first-run";
+    internal const string NoWatchOptionName = "--no-watch";
     internal const string AsSystemProxyOptionName = "--as-system-proxy";
     internal const string InstallCertOptionName = "--install-cert";
     internal const string UrlsToWatchOptionName = "--urls-to-watch";
@@ -402,6 +403,11 @@ sealed class DevProxyCommand : RootCommand
             Description = "Skip the first run experience"
         };
 
+        var noWatchOption = new Option<bool?>(NoWatchOptionName)
+        {
+            Description = "Disable automatic restart on configuration file changes"
+        };
+
         var discoverOption = new Option<bool?>(DiscoverOptionName)
         {
             Description = "Run Dev Proxy in discovery mode"
@@ -529,6 +535,7 @@ sealed class DevProxyCommand : RootCommand
             ipAddressOption,
             logLevelOption,
             noFirstRunOption,
+            noWatchOption,
             outputOption,
             portOption,
             recordOption,
@@ -612,6 +619,11 @@ sealed class DevProxyCommand : RootCommand
         if (noFirstRun is not null)
         {
             _proxyConfiguration.NoFirstRun = noFirstRun.Value;
+        }
+        var noWatch = parseResult.GetValueOrDefault<bool?>(NoWatchOptionName);
+        if (noWatch is not null)
+        {
+            _proxyConfiguration.NoWatch = noWatch.Value;
         }
         var asSystemProxy = parseResult.GetValueOrDefault<bool?>(AsSystemProxyOptionName);
         if (asSystemProxy is not null)
