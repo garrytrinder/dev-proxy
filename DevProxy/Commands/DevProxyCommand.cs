@@ -30,7 +30,7 @@ sealed class DevProxyCommand : RootCommand
     internal static readonly Option<string?> ConfigFileOption = new(ConfigFileOptionName, "-c")
     {
         HelpName = "config-file",
-        Description = "The path to the configuration file"
+        Description = "Path to config file. If not specified, Dev Proxy searches for devproxyrc.jsonc or devproxyrc.json in the current directory, then in a .devproxy/ directory, then under the ~appFolder location. Supports ~appFolder token."
     };
     internal const string NoFirstRunOptionName = "--no-first-run";
     internal const string NoWatchOptionName = "--no-watch";
@@ -574,13 +574,18 @@ sealed class DevProxyCommand : RootCommand
         ]);
         HelpExamples.Install(this);
 
-        var helpOption = Options.OfType<HelpOption>().FirstOrDefault();
-        if (helpOption?.Action is HelpAction helpAction)
-        {
-            helpOption.Action = new ExitCodeHelpAction(helpAction);
-        }
+        CustomizeHelp();
 
         SetAction(InvokeAsync);
+    }
+
+    private void CustomizeHelp()
+    {
+        var helpOption = Options.OfType<HelpOption>().FirstOrDefault();
+        if (helpOption?.Action is SynchronousCommandLineAction currentAction)
+        {
+            helpOption.Action = new DevProxyHelpAction(currentAction);
+        }
     }
 
     private void ConfigureFromOptions(ParseResult parseResult)
