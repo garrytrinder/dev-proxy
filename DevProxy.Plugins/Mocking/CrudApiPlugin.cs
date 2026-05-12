@@ -266,6 +266,7 @@ public sealed class CrudApiPlugin(
             return $"(?<{paramName}>[^/&]+)";
         });
 
+        var requestUrlWithoutQuery = request.RequestUri.GetLeftPart(UriPartial.Path);
         var parameters = new Dictionary<string, string>();
         var action = Configuration.Actions.FirstOrDefault(action =>
         {
@@ -276,7 +277,7 @@ public sealed class CrudApiPlugin(
 
             var absoluteActionUrl = (Configuration.BaseUrl + action.Url).Replace("//", "/", 8);
 
-            if (absoluteActionUrl == request.Url)
+            if (absoluteActionUrl == requestUrlWithoutQuery)
             {
                 return true;
             }
@@ -290,7 +291,7 @@ public sealed class CrudApiPlugin(
 
             // convert parameters into named regex groups
             var urlRegex = Regex.Replace(Regex.Escape(absoluteActionUrl).Replace("\\{", "{", StringComparison.OrdinalIgnoreCase), "({[^}]+})", parameterMatchEvaluator);
-            var match = Regex.Match(request.Url, urlRegex);
+            var match = Regex.Match(requestUrlWithoutQuery, urlRegex);
             if (!match.Success)
             {
                 return false;
