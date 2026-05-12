@@ -56,8 +56,8 @@ public sealed class CrudApiEntraAuth
 public sealed class CrudApiApiKeyAuth
 {
     public string ApiKey { get; set; } = string.Empty;
-    public string HeaderName { get; set; } = "x-api-key";
-    public string QueryParameterName { get; set; } = string.Empty;
+    public string? HeaderName { get; set; }
+    public string? QueryParameterName { get; set; }
 }
 
 public sealed class CrudApiAction
@@ -138,6 +138,26 @@ public sealed class CrudApiPlugin(
         {
             Logger.LogError("API Key auth is enabled but no API key is configured. API will work anonymously.");
             Configuration.Auth = CrudApiAuthType.None;
+        }
+
+        foreach (var action in Configuration.Actions)
+        {
+            if (action.Auth == CrudApiAuthType.ApiKey &&
+                action.ApiKeyAuthConfig is null &&
+                Configuration.ApiKeyAuthConfig is null)
+            {
+                Logger.LogError("API Key auth is enabled for action {Action} but no configuration is provided. Action will work anonymously.", action.Action);
+                action.Auth = CrudApiAuthType.None;
+            }
+
+            var effectiveApiKeyConfig = action.ApiKeyAuthConfig ?? Configuration.ApiKeyAuthConfig;
+            if (action.Auth == CrudApiAuthType.ApiKey &&
+                effectiveApiKeyConfig is not null &&
+                string.IsNullOrEmpty(effectiveApiKeyConfig.ApiKey))
+            {
+                Logger.LogError("API Key auth is enabled for action {Action} but no API key is configured. Action will work anonymously.", action.Action);
+                action.Auth = CrudApiAuthType.None;
+            }
         }
 
         if (!ProxyUtils.MatchesUrlToWatch(UrlsToWatch, Configuration.BaseUrl, true))
@@ -326,13 +346,19 @@ public sealed class CrudApiPlugin(
         if (Configuration.ApiKeyAuthConfig is not null ||
             Configuration.Actions.Any(a => a.Auth == CrudApiAuthType.ApiKey))
         {
-            var apiKeyHeader = Configuration.ApiKeyAuthConfig?.HeaderName
-                ?? Configuration.Actions
-                    .FirstOrDefault(a => a.ApiKeyAuthConfig is not null)?.ApiKeyAuthConfig?.HeaderName
-                ?? "x-api-key";
-            if (!allowHeaders.Contains(apiKeyHeader, StringComparer.OrdinalIgnoreCase))
+            var apiKeyHeaders = new List<string?> { Configuration.ApiKeyAuthConfig?.HeaderName }
+                .Concat(Configuration.Actions
+                    .Where(a => a.ApiKeyAuthConfig is not null)
+                    .Select(a => a.ApiKeyAuthConfig!.HeaderName))
+                .Where(h => !string.IsNullOrEmpty(h))
+                .Distinct(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var apiKeyHeader in apiKeyHeaders)
             {
-                allowHeaders.Add(apiKeyHeader);
+                if (!allowHeaders.Contains(apiKeyHeader!, StringComparer.OrdinalIgnoreCase))
+                {
+                    allowHeaders.Add(apiKeyHeader!);
+                }
             }
         }
 
@@ -369,18 +395,20 @@ public sealed class CrudApiPlugin(
 
     private bool AuthorizeApiKeyRequest(ProxyRequestArgs e, CrudApiAction? action = null)
     {
-        var apiKeyAuthConfig = action is null ? Configuration.ApiKeyAuthConfig : action.ApiKeyAuthConfig;
+        var apiKeyAuthConfig = action?.ApiKeyAuthConfig ?? Configuration.ApiKeyAuthConfig;
 
         Debug.Assert(apiKeyAuthConfig is not null, "ApiKeyAuthConfig is null when API key auth is required.");
 
         // Check header
-        var headerName = apiKeyAuthConfig.HeaderName;
-        var headerValue = e.Session.HttpClient.Request.Headers
-            .FirstOrDefault(h => h.Name.Equals(headerName, StringComparison.OrdinalIgnoreCase))?.Value;
-
-        if (!string.IsNullOrEmpty(headerValue) && headerValue == apiKeyAuthConfig.ApiKey)
+        if (!string.IsNullOrEmpty(apiKeyAuthConfig.HeaderName))
         {
-            return true;
+            var headerValue = e.Session.HttpClient.Request.Headers
+                .FirstOrDefault(h => h.Name.Equals(apiKeyAuthConfig.HeaderName, StringComparison.OrdinalIgnoreCase))?.Value;
+
+            if (!string.IsNullOrEmpty(headerValue) && headerValue == apiKeyAuthConfig.ApiKey)
+            {
+                return true;
+            }
         }
 
         // Check query parameter
