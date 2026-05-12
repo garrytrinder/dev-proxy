@@ -30,6 +30,7 @@ internal sealed class CrudApiDefinitionLoader(
             _configuration.DataFile = apiDefinitionConfig?.DataFile ?? string.Empty;
             _configuration.Auth = apiDefinitionConfig?.Auth ?? CrudApiAuthType.None;
             _configuration.EntraAuthConfig = apiDefinitionConfig?.EntraAuthConfig;
+            _configuration.ApiKeyAuthConfig = apiDefinitionConfig?.ApiKeyAuthConfig;
 
             var configResponses = apiDefinitionConfig?.Actions;
             if (configResponses is not null)

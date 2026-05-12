@@ -39,7 +39,8 @@ public enum CrudApiActionType
 public enum CrudApiAuthType
 {
     None,
-    Entra
+    Entra,
+    ApiKey
 }
 
 public sealed class CrudApiEntraAuth
@@ -52,10 +53,18 @@ public sealed class CrudApiEntraAuth
     public bool ValidateSigningKey { get; set; }
 }
 
+public sealed class CrudApiApiKeyAuth
+{
+    public string ApiKey { get; set; } = string.Empty;
+    public string HeaderName { get; set; } = "x-api-key";
+    public string QueryParameterName { get; set; } = string.Empty;
+}
+
 public sealed class CrudApiAction
 {
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonStringEnumConverter))]
     public CrudApiActionType Action { get; set; } = CrudApiActionType.GetAll;
+    public CrudApiApiKeyAuth? ApiKeyAuthConfig { get; set; }
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonStringEnumConverter))]
     public CrudApiAuthType Auth { get; set; } = CrudApiAuthType.None;
     public CrudApiEntraAuth? EntraAuthConfig { get; set; }
@@ -67,6 +76,7 @@ public sealed class CrudApiAction
 public sealed class CrudApiConfiguration
 {
     public IEnumerable<CrudApiAction> Actions { get; set; } = [];
+    public CrudApiApiKeyAuth? ApiKeyAuthConfig { get; set; }
     public string ApiFile { get; set; } = "api.json";
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonStringEnumConverter))]
     public CrudApiAuthType Auth { get; set; } = CrudApiAuthType.None;
@@ -112,6 +122,21 @@ public sealed class CrudApiPlugin(
             Configuration.EntraAuthConfig is null)
         {
             Logger.LogError("Entra auth is enabled but no configuration is provided. API will work anonymously.");
+            Configuration.Auth = CrudApiAuthType.None;
+        }
+
+        if (Configuration.Auth == CrudApiAuthType.ApiKey &&
+            Configuration.ApiKeyAuthConfig is null)
+        {
+            Logger.LogError("API Key auth is enabled but no configuration is provided. API will work anonymously.");
+            Configuration.Auth = CrudApiAuthType.None;
+        }
+
+        if (Configuration.Auth == CrudApiAuthType.ApiKey &&
+            Configuration.ApiKeyAuthConfig is not null &&
+            string.IsNullOrEmpty(Configuration.ApiKeyAuthConfig.ApiKey))
+        {
+            Logger.LogError("API Key auth is enabled but no API key is configured. API will work anonymously.");
             Configuration.Auth = CrudApiAuthType.None;
         }
 
@@ -290,11 +315,28 @@ public sealed class CrudApiPlugin(
 
         headers.Add(new HttpHeader("access-control-allow-origin", origin));
 
+        var allowHeaders = new List<string> { "content-type" };
+
         if (Configuration.EntraAuthConfig is not null ||
             Configuration.Actions.Any(a => a.Auth == CrudApiAuthType.Entra))
         {
-            headers.Add(new HttpHeader("access-control-allow-headers", "authorization, content-type"));
+            allowHeaders.Add("authorization");
         }
+
+        if (Configuration.ApiKeyAuthConfig is not null ||
+            Configuration.Actions.Any(a => a.Auth == CrudApiAuthType.ApiKey))
+        {
+            var apiKeyHeader = Configuration.ApiKeyAuthConfig?.HeaderName
+                ?? Configuration.Actions
+                    .FirstOrDefault(a => a.ApiKeyAuthConfig is not null)?.ApiKeyAuthConfig?.HeaderName
+                ?? "x-api-key";
+            if (!allowHeaders.Contains(apiKeyHeader, StringComparer.OrdinalIgnoreCase))
+            {
+                allowHeaders.Add(apiKeyHeader);
+            }
+        }
+
+        headers.Add(new HttpHeader("access-control-allow-headers", string.Join(", ", allowHeaders)));
 
         var methods = string.Join(", ", Configuration.Actions
             .Where(a => a.Method is not null)
@@ -307,7 +349,6 @@ public sealed class CrudApiPlugin(
     private bool AuthorizeRequest(ProxyRequestArgs e, CrudApiAction? action = null)
     {
         var authType = action is null ? Configuration.Auth : action.Auth;
-        var authConfig = action is null ? Configuration.EntraAuthConfig : action.EntraAuthConfig;
 
         if (authType == CrudApiAuthType.None)
         {
@@ -317,6 +358,54 @@ public sealed class CrudApiPlugin(
             }
             return true;
         }
+
+        if (authType == CrudApiAuthType.ApiKey)
+        {
+            return AuthorizeApiKeyRequest(e, action);
+        }
+
+        return AuthorizeEntraRequest(e, action);
+    }
+
+    private bool AuthorizeApiKeyRequest(ProxyRequestArgs e, CrudApiAction? action = null)
+    {
+        var apiKeyAuthConfig = action is null ? Configuration.ApiKeyAuthConfig : action.ApiKeyAuthConfig;
+
+        Debug.Assert(apiKeyAuthConfig is not null, "ApiKeyAuthConfig is null when API key auth is required.");
+
+        // Check header
+        var headerName = apiKeyAuthConfig.HeaderName;
+        var headerValue = e.Session.HttpClient.Request.Headers
+            .FirstOrDefault(h => h.Name.Equals(headerName, StringComparison.OrdinalIgnoreCase))?.Value;
+
+        if (!string.IsNullOrEmpty(headerValue) && headerValue == apiKeyAuthConfig.ApiKey)
+        {
+            return true;
+        }
+
+        // Check query parameter
+        if (!string.IsNullOrEmpty(apiKeyAuthConfig.QueryParameterName))
+        {
+            var requestUrl = e.Session.HttpClient.Request.RequestUri;
+            var queryString = requestUrl.Query;
+            if (!string.IsNullOrEmpty(queryString))
+            {
+                var queryParams = System.Web.HttpUtility.ParseQueryString(queryString);
+                var queryValue = queryParams[apiKeyAuthConfig.QueryParameterName];
+                if (!string.IsNullOrEmpty(queryValue) && queryValue == apiKeyAuthConfig.ApiKey)
+                {
+                    return true;
+                }
+            }
+        }
+
+        Logger.LogRequest("401 Unauthorized. The specified API key is not valid.", MessageType.Failed, new LoggingContext(e.Session));
+        return false;
+    }
+
+    private bool AuthorizeEntraRequest(ProxyRequestArgs e, CrudApiAction? action = null)
+    {
+        var authConfig = action is null ? Configuration.EntraAuthConfig : action.EntraAuthConfig;
 
         Debug.Assert(authConfig is not null, "EntraAuthConfig is null when auth is required.");
 
