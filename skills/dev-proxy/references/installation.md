@@ -63,7 +63,7 @@ Or with PowerShell:
 Pass the version to the setup script:
 
 ```bash
-bash -c "$(curl -sL https://aka.ms/devproxy/setup.sh)" -- v2.4.0
+bash -c "$(curl -sL https://aka.ms/devproxy/setup.sh)" -- v3.0.0
 ```
 
 With winget:

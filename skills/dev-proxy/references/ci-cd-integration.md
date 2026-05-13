@@ -182,7 +182,7 @@ No dedicated actions — use script tasks with the Dev Proxy API.
 ```yaml
 variables:
   - name: DEV_PROXY_VERSION
-    value: v2.4.0
+    value: v3.0.0
 
 steps:
   - task: Cache@2
@@ -233,7 +233,7 @@ pool:
 
 variables:
   - name: DEV_PROXY_VERSION
-    value: v2.4.0
+    value: v3.0.0
   - name: LOG_FILE
     value: devproxy.log
 
@@ -300,7 +300,7 @@ For any CI system, follow these steps:
 ### 1. Install with Pinned Version
 
 ```bash
-bash -c "$(curl -sL https://aka.ms/devproxy/setup.sh)" -- v2.4.0
+bash -c "$(curl -sL https://aka.ms/devproxy/setup.sh)" -- v3.0.0
 ```
 
 ### 2. Start in Background with Logging
