@@ -62,31 +62,9 @@
             "type": "string",
             "enum": [
               "none",
-              "entra",
-              "apiKey"
+              "entra"
             ],
-            "description": "Determines if the action is secured. Allowed values: none, entra, apiKey. Default is none."
-          },
-          "apiKeyAuthConfig": {
-            "type": "object",
-            "description": "Configuration for API Key authentication for this action. Overrides the root apiKeyAuthConfig if specified.",
-            "properties": {
-              "apiKey": {
-                "type": "string",
-                "description": "The valid API key that must be present in the request."
-              },
-              "headerName": {
-                "type": "string",
-                "description": "The HTTP header name to read the API key from."
-              },
-              "queryParameterName": {
-                "type": "string",
-                "description": "The name of the query-string parameter to read the API key from."
-              }
-            },
-            "required": [
-              "apiKey"
-            ]
+            "description": "Determines if the action is secured. Allowed values: none, entra. Default is none."
           },
           "entraAuthConfig": {
             "type": "object",

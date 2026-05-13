@@ -64,7 +64,6 @@ public sealed class CrudApiAction
 {
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonStringEnumConverter))]
     public CrudApiActionType Action { get; set; } = CrudApiActionType.GetAll;
-    public CrudApiApiKeyAuth? ApiKeyAuthConfig { get; set; }
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonStringEnumConverter))]
     public CrudApiAuthType Auth { get; set; } = CrudApiAuthType.None;
     public CrudApiEntraAuth? EntraAuthConfig { get; set; }
@@ -138,26 +137,6 @@ public sealed class CrudApiPlugin(
         {
             Logger.LogError("API Key auth is enabled but no API key is configured. API will work anonymously.");
             Configuration.Auth = CrudApiAuthType.None;
-        }
-
-        foreach (var action in Configuration.Actions)
-        {
-            if (action.Auth == CrudApiAuthType.ApiKey &&
-                action.ApiKeyAuthConfig is null &&
-                Configuration.ApiKeyAuthConfig is null)
-            {
-                Logger.LogError("API Key auth is enabled for action {Action} but no configuration is provided. Action will work anonymously.", action.Action);
-                action.Auth = CrudApiAuthType.None;
-            }
-
-            var effectiveApiKeyConfig = action.ApiKeyAuthConfig ?? Configuration.ApiKeyAuthConfig;
-            if (action.Auth == CrudApiAuthType.ApiKey &&
-                effectiveApiKeyConfig is not null &&
-                string.IsNullOrEmpty(effectiveApiKeyConfig.ApiKey))
-            {
-                Logger.LogError("API Key auth is enabled for action {Action} but no API key is configured. Action will work anonymously.", action.Action);
-                action.Auth = CrudApiAuthType.None;
-            }
         }
 
         if (!ProxyUtils.MatchesUrlToWatch(UrlsToWatch, Configuration.BaseUrl, true))
@@ -344,22 +323,12 @@ public sealed class CrudApiPlugin(
             allowHeaders.Add("authorization");
         }
 
-        if (Configuration.ApiKeyAuthConfig is not null ||
-            Configuration.Actions.Any(a => a.Auth == CrudApiAuthType.ApiKey))
+        if (Configuration.ApiKeyAuthConfig is not null &&
+            !string.IsNullOrEmpty(Configuration.ApiKeyAuthConfig.HeaderName))
         {
-            var apiKeyHeaders = new List<string?> { Configuration.ApiKeyAuthConfig?.HeaderName }
-                .Concat(Configuration.Actions
-                    .Where(a => a.ApiKeyAuthConfig is not null)
-                    .Select(a => a.ApiKeyAuthConfig!.HeaderName))
-                .Where(h => !string.IsNullOrEmpty(h))
-                .Distinct(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var apiKeyHeader in apiKeyHeaders)
+            if (!allowHeaders.Contains(Configuration.ApiKeyAuthConfig.HeaderName, StringComparer.OrdinalIgnoreCase))
             {
-                if (!allowHeaders.Contains(apiKeyHeader!, StringComparer.OrdinalIgnoreCase))
-                {
-                    allowHeaders.Add(apiKeyHeader!);
-                }
+                allowHeaders.Add(Configuration.ApiKeyAuthConfig.HeaderName);
             }
         }
 
@@ -388,15 +357,15 @@ public sealed class CrudApiPlugin(
 
         if (authType == CrudApiAuthType.ApiKey)
         {
-            return AuthorizeApiKeyRequest(e, action);
+            return AuthorizeApiKeyRequest(e);
         }
 
         return AuthorizeEntraRequest(e, action);
     }
 
-    private bool AuthorizeApiKeyRequest(ProxyRequestArgs e, CrudApiAction? action = null)
+    private bool AuthorizeApiKeyRequest(ProxyRequestArgs e)
     {
-        var apiKeyAuthConfig = action?.ApiKeyAuthConfig ?? Configuration.ApiKeyAuthConfig;
+        var apiKeyAuthConfig = Configuration.ApiKeyAuthConfig;
 
         Debug.Assert(apiKeyAuthConfig is not null, "ApiKeyAuthConfig is null when API key auth is required.");
 
