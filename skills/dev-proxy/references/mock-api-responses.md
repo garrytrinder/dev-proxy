@@ -259,7 +259,7 @@ Dev Proxy checks the header first, then the query parameter. If either matches, 
 | `headerName` | No | — | HTTP header name to read the API key from |
 | `queryParameterName` | No | — | Query parameter name to read the API key from |
 
-At least one of `headerName` or `queryParameterName` should be specified. Per-action API Key auth is supported by setting `"auth": "apiKey"` on individual actions — the root `apiKeyAuthConfig` is used.
+At least one of `headerName` or `queryParameterName` must be specified — omitting both means no request can be authorized. API Key auth applies to all actions and cannot be configured per-action.
 
 #### Entra Auth
 

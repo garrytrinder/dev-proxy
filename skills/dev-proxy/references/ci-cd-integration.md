@@ -63,7 +63,7 @@ Access via `${{ steps.<step-id>.outputs.proxy-url }}`.
 ```yaml
 - uses: dev-proxy-tools/actions/setup@v1
   with:
-    version: 2.4.0
+    version: 3.0.0
 ```
 
 ### Multiple Recording Sessions
@@ -103,7 +103,7 @@ jobs:
 
       - uses: dev-proxy-tools/actions/setup@v1
         with:
-          version: 2.4.0
+          version: 3.0.0
 
       - id: start-proxy
         uses: dev-proxy-tools/actions/start@v1
