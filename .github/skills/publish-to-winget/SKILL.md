@@ -17,7 +17,10 @@ Create winget manifest files and submit a PR to `microsoft/winget-pkgs` — enti
 Before starting, verify ALL of the following:
 
 1. **`gh` CLI** is installed and authenticated (`gh auth status`)
-2. **The installer** `.exe` is already published at the GitHub Releases URL for the target version
+2. **`curl`** is available
+3. **`shasum`** (macOS) or **`sha256sum`** (Linux) is available for computing SHA256 hashes
+4. **`awk`** is available
+5. **The installer** `.exe` is already published at the GitHub Releases URL for the target version
 
 If any prerequisite fails, stop and tell the user what's missing.
 
@@ -39,7 +42,7 @@ MANIFEST_VERSION = 1.12.0
 > **Keeping the schema version current:** The `MANIFEST_VERSION` must match the
 > latest schema version used in [winget-pkgs](https://github.com/microsoft/winget-pkgs/tree/master/doc/manifest/schema).
 > Check before publishing — if a newer schema exists, update
-> `MANIFEST_VERSION` here and in the helper script.
+> `MANIFEST_VERSION` in this file.
 
 ## Process
 
@@ -66,18 +69,37 @@ FORK_REPO=$(gh api user --jq '.login')/winget-pkgs
 
 ### Step 3: Download Installer and Compute SHA256
 
-Download the installer and compute its SHA256 hash:
+Download the installer to a temporary file, validate the download succeeded, then compute the SHA256 hash:
 
 ```bash
-curl -sL "${GITHUB_RELEASE_URL}<version>/dev-proxy-installer-win-x64-v<version>.exe" | shasum -a 256 | awk '{print $1}'
+INSTALLER_URL="${GITHUB_RELEASE_URL}<version>/dev-proxy-installer-win-x64-v<version>.exe"
+INSTALLER_FILE=$(mktemp)
+curl -fSL -o "${INSTALLER_FILE}" "${INSTALLER_URL}"
 ```
 
-If the download fails (404 or empty hash), stop and tell the user the installer is not available at that URL. The SHA256 of an empty file is `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` — treat this as a failure.
+If `curl` exits with a non-zero status (e.g., HTTP 404), stop and tell the user the installer is not available at that URL.
+
+Compute the hash from the downloaded file:
+
+```bash
+SHA256=$(shasum -a 256 "${INSTALLER_FILE}" | awk '{print $1}')
+rm -f "${INSTALLER_FILE}"
+```
+
+On Linux, use `sha256sum` instead of `shasum -a 256`.
+
+If the hash equals `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` (SHA256 of an empty file), treat this as a failure.
 
 ### Step 4: Get Upstream master HEAD SHA
 
 ```bash
 MASTER_SHA=$(gh api repos/microsoft/winget-pkgs/git/ref/heads/master --jq '.object.sha')
+```
+
+Also fetch the tree SHA from the master commit (needed for `base_tree` in Step 6b):
+
+```bash
+MASTER_TREE_SHA=$(gh api repos/microsoft/winget-pkgs/git/commits/${MASTER_SHA} --jq '.tree.sha')
 ```
 
 ### Step 5: Create Branch on Fork
@@ -112,7 +134,7 @@ Create one blob per manifest file (3 total).
 
 ```bash
 gh api repos/${FORK_REPO}/git/trees \
-  -f "base_tree=${MASTER_SHA}" \
+  -f "base_tree=${MASTER_TREE_SHA}" \
   -f "tree[][path]=manifests/d/DevProxy/<releaseFolder>/<version>/<packageIdentifier>.installer.yaml" \
   -f "tree[][mode]=100644" \
   -f "tree[][type]=blob" \
@@ -202,9 +224,10 @@ ManifestVersion: <MANIFEST_VERSION>
 ### Step 7: Create Pull Request
 
 ```bash
+FORK_OWNER=$(gh api user --jq '.login')
 gh pr create \
   --repo microsoft/winget-pkgs \
-  --head "${FORK_REPO##*/}:<branch-name>" \
+  --head "${FORK_OWNER}:<branch-name>" \
   --base master \
   --title "New version: <packageIdentifier> version <version>" \
   --body "New version: <packageIdentifier> version <version>"
